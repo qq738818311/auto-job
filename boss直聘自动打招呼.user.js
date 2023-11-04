@@ -51,6 +51,10 @@ const config = {
      */
     excludes: [],
     /**
+     * 要排除的BOSS名字，比如 '猎头顾问' 将会比排除在外
+     */
+    excludeBossNames: ['猎头顾问'],
+    /**
      * 每次访问的最小间隔，防止操作过快被系统判定为机器人，单位秒
      */
     min: 5,
@@ -577,10 +581,11 @@ var AutoJob = (function () {
             newConfig.experience = Array.isArray(config.experience) ? config.experience : [];
             newConfig.liveness = Array.isArray(config.liveness) ? config.liveness : [];
             newConfig.excludes = Array.isArray(config.excludes) ? config.excludes : [];
+            newConfig.excludeBossNames = Array.isArray(config.excludeBossNames) ? config.excludeBossNames : [];
             newConfig.scale = Array.isArray(config.scale) ? config.scale : [];
             newConfig.degree = Array.isArray(config.degree) ? config.degree : [];
-            newConfig.min = (typeof newConfig.min === 'number' ? newConfig.min : 3) * 1000;
-            newConfig.max = (typeof newConfig.max === 'number' ? newConfig.max : 6) * 1000;
+            newConfig.min = (typeof config.min === 'number' ? config.min : 3) * 1000;
+            newConfig.max = (typeof config.max === 'number' ? config.max : 6) * 1000;
             newConfig.message = config.message;
             newConfig.salary = config.salary ?? [];
 
@@ -640,18 +645,25 @@ var AutoJob = (function () {
             }
         }
 
-        // 倒计时函数
-        _countdown(countdownTime, handler) {
-            const countdownElement = document.createElement('div');
-            countdownElement.style.position = 'fixed';
-            countdownElement.style.top = '25%';
-            countdownElement.style.left = '50%';
-            countdownElement.style.transform = 'translate(-50%, -50%)';
-            countdownElement.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-            countdownElement.style.padding = '20px';
-            countdownElement.style.border = '1px solid #000';
-            countdownElement.style.zIndex = '9999';
-            document.body.appendChild(countdownElement);
+        // 倒计时函数 type 0 页面跳转 1 条目跳转
+        _countdown(countdownTime, handler, index = 0, total = 0) {
+            let countdownElement = document.querySelector('.countdown');
+            if (countdownElement === null) {
+                countdownElement = document.createElement('div');
+                countdownElement.className = 'countdown';
+                countdownElement.style.position = 'fixed';
+                countdownElement.style.top = '25%';
+                countdownElement.style.left = '50%';
+                countdownElement.style.transform = 'translate(-50%, -50%)';
+                countdownElement.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+                countdownElement.style.padding = '20px';
+                countdownElement.style.border = '1px solid #000';
+                countdownElement.style.zIndex = '9999';
+                // 让文本水平和垂直居中
+                countdownElement.style.textAlign = 'center';
+                countdownElement.style.lineHeight = '2'; // 调整 line-height 的值以适应你的设计
+                document.body.appendChild(countdownElement);
+            }
 
             // const countdownTime = 10 * 60; // 10分钟倒计时
             let remainingTime = countdownTime;
@@ -661,7 +673,16 @@ var AutoJob = (function () {
                     handler();
                 } else {
                     const m = Math.floor(remainingTime / 60);
-                    countdownElement.innerHTML = `跳转中... 剩余时间: ${m > 0 ? `${m} 分钟 ` : ''}${remainingTime % 60} 秒`;
+                    const url = new URL(window.location.href);
+                    const { searchParams } = url;
+
+                    if (!searchParams.has('page')) {
+                        searchParams.append('page', 1);
+                    }
+                    const page = ~~searchParams.get('page');
+                    countdownElement.innerHTML = `当前mode为${this.config.mode},第${page}页<br>
+                    ${index > 0 ? `共${total}条，第${index}条` : '页面'}跳转中...<br>
+                    剩余时间: ${m > 0 ? `${m} 分钟 ` : ''}${remainingTime % 60} 秒`;
                     remainingTime--;
                 }
             }, 1000);
@@ -782,7 +803,8 @@ var AutoJob = (function () {
             await this._traverse();
 
             searchParams.set('page', page + 1);
-            this._countdown(Math.ceil(random(config.min, config.max) / 1000), () => {
+            const randomTime = random(config.min, config.max);
+            this._countdown(Math.ceil(randomTime / 1000), () => {
                 window.location.search = searchParams.toString();
             });
 
@@ -801,30 +823,37 @@ var AutoJob = (function () {
         async _traverse() {
             const { config } = this;
             const box = await monitorElementGeneration('.job-list-box');
-            const handlers = Array.from(box.querySelectorAll('.job-card-wrapper'))
-                .filter(dom => {
-                    const isfriend = dom.querySelector('.job-card-left > .job-info > .start-chat-btn');
-                    const name = dom.querySelector('.job-card-right .company-name > a');
-                    const jobName = dom.querySelector('.job-card-left .job-name');
-                    // 过滤已沟通的职位
-                    return isfriend.innerText === '立即沟通' &&
-                        // 排除的公司
-                        !config.excludes.some(exclude => name.innerText.includes(exclude)) &&
-                        // 是否接受外地职位
-                        (config.otherPlace || !dom.querySelector('.job-card-left > .icon-other-place')) &&
-                        // 职位名称匹配
-                        jobName.innerText.toLowerCase().includes(config.keyword.toLowerCase()) &&
-                        // 职位名称排除关键词
-                        !config.excludeKeywords.find(keyword => jobName.innerText.includes(keyword))
+            const jobs = Array.from(box.querySelectorAll('.job-card-wrapper'))
+            .filter(dom => {
+                const isfriend = dom.querySelector('.job-card-left > .job-info > .start-chat-btn');
+                const name = dom.querySelector('.job-card-right .company-name > a');
+                const jobName = dom.querySelector('.job-card-left .job-name');
+                const bossName = dom.querySelector('.job-card-left .info-public');
+                // 过滤已沟通的职位
+                return isfriend.innerText === '立即沟通' &&
+                    // 排除的公司
+                    !config.excludes.some(exclude => name.innerText.includes(exclude)) &&
+                    // 是否接受外地职位
+                    (config.otherPlace || !dom.querySelector('.job-card-left > .icon-other-place')) &&
+                    // 职位名称匹配
+                    jobName.innerText.toLowerCase().includes(config.keyword.toLowerCase()) &&
+                    // 职位名称排除关键词
+                    !config.excludeKeywords.find(keyword => jobName.innerText.includes(keyword)) &&
+                    // boss名称排除关键字
+                    !config.excludeBossNames.some(excludeBossName => bossName.innerText.includes(excludeBossName))
+            });
+            const handlers = jobs.map((dom, index) => {
+                return () => new Promise(resolve => {
+                    this._countdown(Math.ceil(random(config.min, config.max) / 1000), () => {
+                        dom.click();
+                        resolve();
+                    }, index+1, jobs.length);
+                    //setTimeout(() => {
+                    //    dom.click();
+                    //    resolve();
+                    //}, random(config.min, config.max));
                 })
-                .map(dom => {
-                    return () => new Promise(resolve => {
-                        setTimeout(() => {
-                            dom.click();
-                            resolve();
-                        }, random(config.min, config.max));
-                    })
-                });
+            });
 
             for (const handler of handlers) {
                 await handler();
