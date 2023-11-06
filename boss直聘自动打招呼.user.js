@@ -652,12 +652,16 @@ var AutoJob = (function () {
                 countdownElement = document.createElement('div');
                 countdownElement.className = 'countdown';
                 countdownElement.style.position = 'fixed';
-                countdownElement.style.top = '25%';
-                countdownElement.style.left = '50%';
+                countdownElement.style.top = '14.5%';
+                countdownElement.style.right = '-1.2%';
                 countdownElement.style.transform = 'translate(-50%, -50%)';
-                countdownElement.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+                countdownElement.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
                 countdownElement.style.padding = '20px';
                 countdownElement.style.border = '1px solid #000';
+                countdownElement.style.borderRadius = '12px';
+                // 设置字体大小和颜色
+                countdownElement.style.fontSize = '15px'; // 设置字体大小
+                countdownElement.style.color = 'white'; // 设置字体颜色
                 countdownElement.style.zIndex = '9999';
                 // 让文本水平和垂直居中
                 countdownElement.style.textAlign = 'center';
@@ -680,7 +684,7 @@ var AutoJob = (function () {
                         searchParams.append('page', 1);
                     }
                     const page = ~~searchParams.get('page');
-                    countdownElement.innerHTML = `当前mode为${this.config.mode},第${page}页<br>
+                    countdownElement.innerHTML = `当前mode为${this.config.mode}，第${page}页<br>
                     ${index > 0 ? `共${total}条，第${index}条` : '页面'}跳转中...<br>
                     剩余时间: ${m > 0 ? `${m} 分钟 ` : ''}${remainingTime % 60} 秒`;
                     remainingTime--;
