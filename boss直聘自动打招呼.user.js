@@ -652,8 +652,8 @@ var AutoJob = (function () {
                 countdownElement = document.createElement('div');
                 countdownElement.className = 'countdown';
                 countdownElement.style.position = 'fixed';
-                countdownElement.style.top = '14.5%';
-                countdownElement.style.right = '-1.2%';
+                countdownElement.style.top = '14%';
+                countdownElement.style.left = '50%';
                 countdownElement.style.transform = 'translate(-50%, -50%)';
                 countdownElement.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
                 countdownElement.style.padding = '20px';
@@ -666,6 +666,26 @@ var AutoJob = (function () {
                 // 让文本水平和垂直居中
                 countdownElement.style.textAlign = 'center';
                 countdownElement.style.lineHeight = '2'; // 调整 line-height 的值以适应你的设计
+                // 设置鼠标指针样式为十字
+                countdownElement.style.cursor = 'move';
+                // 添加拖拽功能
+                let isDragging = false;
+                let offsetX, offsetY;
+                countdownElement.addEventListener('mousedown', function (e) {
+                    isDragging = true;
+                    offsetX = e.clientX - countdownElement.offsetLeft;
+                    offsetY = e.clientY - countdownElement.offsetTop;
+                    e.preventDefault(); // 取消默认拖拽行为
+                });
+                document.addEventListener('mousemove', function (e) {
+                    if (isDragging) {
+                        countdownElement.style.left = e.clientX - offsetX + 'px';
+                        countdownElement.style.top = e.clientY - offsetY + 'px';
+                    }
+                });
+                document.addEventListener('mouseup', function () {
+                    isDragging = false;
+                });
                 document.body.appendChild(countdownElement);
             }
 
