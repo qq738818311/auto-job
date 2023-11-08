@@ -61,7 +61,7 @@ const config = {
     /**
      * 每次访问的最大间隔，防止操作过快被系统判定为机器人，单位秒
      */
-    max: 15,
+    max: 10,
     /**
      * 打招呼语
      */
@@ -652,7 +652,7 @@ var AutoJob = (function () {
                 countdownElement = document.createElement('div');
                 countdownElement.className = 'countdown';
                 countdownElement.style.position = 'fixed';
-                countdownElement.style.top = '14%';
+                countdownElement.style.top = '14.5%';
                 countdownElement.style.left = '50%';
                 countdownElement.style.transform = 'translate(-50%, -50%)';
                 countdownElement.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
@@ -689,6 +689,7 @@ var AutoJob = (function () {
                 document.body.appendChild(countdownElement);
             }
 
+            const startTime = Number(localStorage.getItem('startTime'));
             // const countdownTime = 10 * 60; // 10分钟倒计时
             let remainingTime = countdownTime;
             const countdownInterval = setInterval(() => {
@@ -697,16 +698,21 @@ var AutoJob = (function () {
                     handler();
                 } else {
                     const m = Math.floor(remainingTime / 60);
+                    // 获取页码
                     const url = new URL(window.location.href);
                     const { searchParams } = url;
-
                     if (!searchParams.has('page')) {
                         searchParams.append('page', 1);
                     }
                     const page = ~~searchParams.get('page');
-                    countdownElement.innerHTML = `当前mode为${this.config.mode}，第${page}页<br>
+                    // 获取当前时间
+                    const nowTime = new Date().getTime();
+                    const timeCost = Math.floor((nowTime - startTime) / 1000);
+                    const costM = Math.floor(timeCost / 60);
+                    countdownElement.innerHTML = `本次用时：${costM > 0 ? `${costM} 分 ` : ''}${timeCost % 60} 秒<br>
+                    当前mode为${this.config.mode}，第${page}页<br>
                     ${index > 0 ? `共${total}条，第${index}条` : '页面'}跳转中...<br>
-                    剩余时间: ${m > 0 ? `${m} 分钟 ` : ''}${remainingTime % 60} 秒`;
+                    剩余时间: ${m > 0 ? `${m} 分 ` : ''}${remainingTime % 60} 秒`;
                     remainingTime--;
                 }
             }, 1000);
@@ -725,6 +731,9 @@ var AutoJob = (function () {
                 searchParams.append('page', 1);
             }
             const page = ~~searchParams.get('page');
+            if (page == 1) {
+                localStorage.setItem('startTime', new Date().getTime());
+            }
             // 限制最多 10 页
             // if (page > 10) return
             if (page > 10) {
