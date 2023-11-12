@@ -709,7 +709,9 @@ var AutoJob = (function () {
                     const nowTime = new Date().getTime();
                     const timeCost = Math.floor((nowTime - startTime) / 1000);
                     const costM = Math.floor(timeCost / 60);
-                    countdownElement.innerHTML = `本次用时：${costM > 0 ? `${costM} 分 ` : ''}${timeCost % 60} 秒<br>
+                    // 获取总投递BOSS数量
+                    const totalBoss = Number(localStorage.getItem('totalBoss'));
+                    countdownElement.innerHTML = `用时 ${costM > 0 ? `${costM} 分 ` : ''}${timeCost % 60} 秒，投递 ${totalBoss} 次<br>
                     当前mode为${this.config.mode}，第${page}页<br>
                     ${index > 0 ? `共${total}条，第${index}条` : '页面'}跳转中...<br>
                     剩余时间: ${m > 0 ? `${m} 分 ` : ''}${remainingTime % 60} 秒`;
@@ -733,6 +735,7 @@ var AutoJob = (function () {
             const page = ~~searchParams.get('page');
             if (page == 1) {
                 localStorage.setItem('startTime', new Date().getTime());
+                localStorage.setItem('totalBoss', 0);
             }
             // 限制最多 10 页
             // if (page > 10) return
@@ -796,7 +799,7 @@ var AutoJob = (function () {
             // if (page > 30) return
             if (page > 30) {
                 const mode = config.mode === 1 ? 2 : 0;
-                const time = config.mode === 1 ? 60 : 10 * 60;
+                const time = config.mode === 1 ? 60 : 5 * 60;
                 localStorage.setItem('mode', mode);
                 this._countdown(time, () => {
                     window.location = 'https://www.zhipin.com';
@@ -910,6 +913,8 @@ var AutoJob = (function () {
                 return
             }
             commentBtn.click();
+            const totalBoss = Number(localStorage.getItem('totalBoss')) + 1;
+            localStorage.setItem('totalBoss', totalBoss);
             // 点击立即沟通后发出自动打招呼完成，10s后关闭页面
             this._countdown(10, () => {
                 this._close();
