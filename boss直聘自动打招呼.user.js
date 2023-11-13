@@ -157,6 +157,10 @@ var AutoJob = (function () {
         )
     }
 
+    function formatDate(date) {
+        return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+    }
+
     const cityCodeMap = {
         "北京": 101010100,
         "上海": 101020100,
@@ -652,7 +656,7 @@ var AutoJob = (function () {
                 countdownElement = document.createElement('div');
                 countdownElement.className = 'countdown';
                 countdownElement.style.position = 'fixed';
-                countdownElement.style.top = '14.5%';
+                countdownElement.style.top = '16.5%';
                 countdownElement.style.left = '50%';
                 countdownElement.style.transform = 'translate(-50%, -50%)';
                 countdownElement.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
@@ -711,13 +715,44 @@ var AutoJob = (function () {
                     const costM = Math.floor(timeCost / 60);
                     // 获取总投递BOSS数量
                     const totalBoss = Number(localStorage.getItem('totalBoss'));
-                    countdownElement.innerHTML = `用时 ${costM > 0 ? `${costM} 分 ` : ''}${timeCost % 60} 秒，投递 ${totalBoss} 次<br>
-                    当前mode为${this.config.mode}，第${page}页<br>
-                    ${index > 0 ? `共${total}条，第${index}条` : '页面'}跳转中...<br>
+                    countdownElement.innerHTML = `今日投递 ${this._getTotalCount()} 次<br>
+                    本次用时 ${costM > 0 ? `${costM} 分 ` : ''}${timeCost % 60} 秒，投递 ${totalBoss} 次<br>
+                    当前 mode 为 ${this.config.mode}，第 ${page} 页<br>
+                    ${index > 0 ? `共 ${total} 条，第 ${index} 条` : '页面'}跳转中...<br>
                     剩余时间: ${m > 0 ? `${m} 分 ` : ''}${remainingTime % 60} 秒`;
                     remainingTime--;
                 }
             }, 1000);
+        }
+
+        // 设置日投递数
+        _setTotalCount() {
+            const date = formatDate(new Date());
+            const totalCount = localStorage.getItem('totalCount');
+            if (totalCount) {
+                const countInfo = totalCount.split(' ');
+                const localDate = countInfo[0];
+                const localCount = Number(countInfo[1]);
+                if (localDate === date) {
+                    localStorage.setItem('totalCount', `${localDate} ${localCount + 1}`);
+                    return;
+                }
+            }
+            localStorage.setItem('totalCount', `${date} 1`);
+        }
+
+        // 获取日投递数
+        _getTotalCount() {
+            const date = formatDate(new Date());
+            const totalCount = localStorage.getItem('totalCount');
+            if (totalCount) {
+                const countInfo = totalCount.split(' ');
+                const localDate = countInfo[0];
+                if (localDate === date) {
+                    return Number(countInfo[1]);
+                }
+            }
+            return 0;
         }
 
         /**
@@ -915,6 +950,8 @@ var AutoJob = (function () {
             commentBtn.click();
             const totalBoss = Number(localStorage.getItem('totalBoss')) + 1;
             localStorage.setItem('totalBoss', totalBoss);
+            // 统计日投递数
+            this._setTotalCount();
             // 点击立即沟通后发出自动打招呼完成，10s后关闭页面
             this._countdown(10, () => {
                 this._close();
