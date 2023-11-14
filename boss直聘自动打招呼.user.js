@@ -145,6 +145,16 @@ var AutoJob = (function () {
         })
     }
 
+    async function delayQuerySelectorAll(selector) {
+        return new Promise(resolve => {
+            let el;
+            setTimeout(async () => {
+                el = await monitorElementsGeneration(selector);
+                resolve(el);
+            }, 1000);
+        })
+    }
+
     /**
      * 输入最大和最小正整数，在该范围内取随机数
      * @param {*} min
@@ -539,16 +549,17 @@ var AutoJob = (function () {
     class AutoJob {
         constructor(config) {
             this.config = this._formatConfig(config);
+            this.page = 1;
         }
 
         _formatConfig(config) {
             const newConfig = {};
 
-            let mode = localStorage.getItem('mode');
+            let mode = localStorage.getItem('auto_job_mode');
             if (mode === null) {
                 mode = 0;
-                localStorage.setItem('mode', mode);
-                mode = localStorage.getItem('mode');
+                localStorage.setItem('auto_job_mode', mode);
+                mode = localStorage.getItem('auto_job_mode');
             }
             if (![0, 1, 2].includes(config.mode)) {
                 throw new TypeError('mode 的值必须是 0, 1, 2')
@@ -596,18 +607,29 @@ var AutoJob = (function () {
             return newConfig
         }
 
-        start() {
-            if (window.location.pathname === '/web/geek/job') { // 通过搜索框打开的 jobs
-                this._traverseJob();
-            } else if (window.location.pathname === '/web/geek/recommend') { // 推荐职位的 jobs
-                this._traverseRecommend();
+        async start() {
+            const { config } = this;
+            // 是否登录判断
+            const isLogin = document.querySelector('.btn.btn-outline.header-login-btn');
+            if (isLogin && isLogin.innerText.indexOf('登录/注册') != -1) {
+                alert('未登录，请先登录！');
+                return;
             }
-            else if (window.location.pathname.indexOf('/job_detail') === 0) { // 详情页
+            if (window.location.pathname === '/web/geek/job') { // 通过搜索框打开的 jobs
+                if (config.mode > 0) {
+                    window.location = 'https://www.zhipin.com';
+                }
+                this._traverseJob();
+            } else if (window.location.pathname === '/web/geek/job-recommend') { // 推荐职位的 jobs
+                if (config.mode === 0) {
+                    window.location = 'https://www.zhipin.com';
+                }
+                this._traverseRecommendBefore();
+            } else if (window.location.pathname.indexOf('/job_detail') === 0) { // 详情页
                 this._checkValidJob();
             } else if (window.location.pathname === '/web/geek/chat') { // 聊天页
                 this._sayHello();
-            }
-            else {
+            } else {
                 this._toJobs();
             }
         }
@@ -644,8 +666,8 @@ var AutoJob = (function () {
                 // 打开推荐职位
                 const recommend = await monitorElementGeneration('.merge-city-job-recommend');
                 const moreBtn = recommend.querySelector('.common-tab-more > a');
-                // moreBtn.click();
-                window.location = 'https://www.zhipin.com/web/geek/recommend';
+                moreBtn.click();
+                //window.location = 'https://www.zhipin.com/web/geek/recommend';
             }
         }
 
@@ -693,7 +715,7 @@ var AutoJob = (function () {
                 document.body.appendChild(countdownElement);
             }
 
-            const startTime = Number(localStorage.getItem('startTime'));
+            const startTime = Number(localStorage.getItem('auto_job_start_time'));
             // const countdownTime = 10 * 60; // 10分钟倒计时
             let remainingTime = countdownTime;
             const countdownInterval = setInterval(() => {
@@ -702,23 +724,16 @@ var AutoJob = (function () {
                     handler();
                 } else {
                     const m = Math.floor(remainingTime / 60);
-                    // 获取页码
-                    const url = new URL(window.location.href);
-                    const { searchParams } = url;
-                    if (!searchParams.has('page')) {
-                        searchParams.append('page', 1);
-                    }
-                    const page = ~~searchParams.get('page');
                     // 获取当前时间
                     const nowTime = new Date().getTime();
                     const timeCost = Math.floor((nowTime - startTime) / 1000);
                     const costM = Math.floor(timeCost / 60);
                     // 获取总投递BOSS数量
-                    const totalBoss = Number(localStorage.getItem('totalBoss'));
+                    const totalBoss = Number(localStorage.getItem('auto_job_total_boss'));
                     countdownElement.innerHTML = `今日投递 ${this._getTotalCount()} 次<br>
                     本次用时 ${costM > 0 ? `${costM} 分 ` : ''}${timeCost % 60} 秒，投递 ${totalBoss} 次<br>
-                    当前 mode 为 ${this.config.mode}，第 ${page} 页<br>
-                    ${index > 0 ? `共 ${total} 条，第 ${index} 条` : '页面'}跳转中...<br>
+                    当前 mode 为 ${this.config.mode}，第 ${this.page} 页<br>
+                    ${index > 0 ? `共 ${total} 条，第 ${index} 条跳转中...` : (this.config.mode > 0 ? '分页加载中...' : '页面跳转中...')}<br>
                     剩余时间: ${m > 0 ? `${m} 分 ` : ''}${remainingTime % 60} 秒`;
                     remainingTime--;
                 }
@@ -728,23 +743,23 @@ var AutoJob = (function () {
         // 设置日投递数
         _setTotalCount() {
             const date = formatDate(new Date());
-            const totalCount = localStorage.getItem('totalCount');
+            const totalCount = localStorage.getItem('auto_job_total_count');
             if (totalCount) {
                 const countInfo = totalCount.split(' ');
                 const localDate = countInfo[0];
                 const localCount = Number(countInfo[1]);
                 if (localDate === date) {
-                    localStorage.setItem('totalCount', `${localDate} ${localCount + 1}`);
+                    localStorage.setItem('auto_job_total_count', `${localDate} ${localCount + 1}`);
                     return;
                 }
             }
-            localStorage.setItem('totalCount', `${date} 1`);
+            localStorage.setItem('auto_job_total_count', `${date} 1`);
         }
 
         // 获取日投递数
         _getTotalCount() {
             const date = formatDate(new Date());
-            const totalCount = localStorage.getItem('totalCount');
+            const totalCount = localStorage.getItem('auto_job_total_count');
             if (totalCount) {
                 const countInfo = totalCount.split(' ');
                 const localDate = countInfo[0];
@@ -768,14 +783,15 @@ var AutoJob = (function () {
                 searchParams.append('page', 1);
             }
             const page = ~~searchParams.get('page');
+            this.page = page;
             if (page == 1) {
-                localStorage.setItem('startTime', new Date().getTime());
-                localStorage.setItem('totalBoss', 0);
+                localStorage.setItem('auto_job_start_time', new Date().getTime());
+                localStorage.setItem('auto_job_total_boss', 0);
             }
             // 限制最多 10 页
             // if (page > 10) return
             if (page > 10) {
-                localStorage.setItem('mode', 1);
+                localStorage.setItem('auto_job_mode', 1);
                 this._countdown(60, () => {
                     window.location = 'https://www.zhipin.com';
                 });
@@ -795,13 +811,12 @@ var AutoJob = (function () {
             } else {
                 setSearchParams('salary', config.salary);
             }
-            searchParams.set('page', page);
             if (isModify) {
                 window.location.search = searchParams.toString();
                 return
             }
 
-            await this._traverse();
+            await this._traverse(page);
 
             searchParams.set('page', page + 1);
             this._countdown(Math.ceil(random(config.min, config.max) / 1000), () => {
@@ -817,48 +832,20 @@ var AutoJob = (function () {
             }
         }
 
-        /**
-         * 修正获取的 jobs 并逐个访问
-         */
-        async _traverseRecommend() {
+        // 选择 推荐职位 还是 自己关注的职位 mode === 1 自己关注职位第一个 mode === 2 推荐职位
+        async _traverseRecommendBefore() {
             const { config } = this;
 
             const url = new URL(window.location.href);
             const { searchParams } = url;
 
-            if (!searchParams.has('page')) {
-                searchParams.append('page', 1);
-            }
-            const page = ~~searchParams.get('page');
-            // 限制最多 30 页
-            // if (page > 30) return
-            if (page > 30) {
-                const mode = config.mode === 1 ? 2 : 0;
-                const time = config.mode === 1 ? 60 : 5 * 60;
-                localStorage.setItem('mode', mode);
-                this._countdown(time, () => {
-                    window.location = 'https://www.zhipin.com';
-                });
-                return
-            }
-
-            const cities = await monitorElementsGeneration('.system-search-condition .expect-list > .expect-item');
-            const city = Array.from(cities).find(city => city.innerText.includes(config.city));
-            if (!city) return
-
-            city.click();
-
-            const jobTabs = await monitorElementsGeneration('.user-jobs-area .job-tab > span');
-            Array.from(jobTabs).find(tab => tab.innerText === (config.mode === 2 ? '最新职位' : '精选职位')).click();
-
             let isModify = false;
+            if (config.mode === 2) {
+                setSearchParams('city', cityCodeMap[config.city]);
+            }
             setSearchParams('scale', config.scale);
             setSearchParams('degree', config.degree);
             setSearchParams('experience', config.experience);
-            const newUrl = new URL(window.location.href);
-            const { searchParams: newSearchParams } = newUrl;
-            searchParams.set('expectId', newSearchParams.get('expectId'));
-            searchParams.set('sortType', newSearchParams.get('sortType'));
             if (Array.isArray(config.salary) && config.salary.length) {
                 setSearchParams('salary', -40001);
                 setSearchParams('lowSalary', config.salary[0]);
@@ -871,13 +858,13 @@ var AutoJob = (function () {
                 return
             }
 
-            await this._traverse();
+            const recommendBtns = Array.from(await delayQuerySelectorAll('.recommend-job-btn'));
+            if (!recommendBtns) return;
+            if (config.mode === 1 && recommendBtns.length < 2) return;
+            const recommendBtn = recommendBtns[config.mode === 1 ? 1 : 0];
+            recommendBtn.click();
 
-            searchParams.set('page', page + 1);
-            const randomTime = random(config.min, config.max);
-            this._countdown(Math.ceil(randomTime / 1000), () => {
-                window.location.search = searchParams.toString();
-            });
+            await this._traverseRecommend();
 
             function setSearchParams(key, value) {
                 const oldValue = searchParams.get(key);
@@ -888,10 +875,77 @@ var AutoJob = (function () {
             }
         }
 
+        async _recommendLoadNextPage() {
+            const main = await monitorElementGeneration('.job-recommend-main');
+            // 自动加载下一页
+            main.scrollTop = main.scrollHeight - main.clientHeight - 196 + 10;
+            this.page++;
+        }
+
+        /**
+         * 修正获取的 jobs 并逐个访问
+         */
+        async _traverseRecommend() {
+            const { config } = this;
+
+            if (this.page > 30) {
+                const mode = config.mode === 1 ? 2 : 0;
+                const time = config.mode === 1 ? 60 : 5 * 60;
+                localStorage.setItem('auto_job_mode', mode);
+                this._countdown(time, () => {
+                    window.location = 'https://www.zhipin.com';
+                });
+                return;
+            }
+
+            const boxes = Array.from(await delayQuerySelectorAll('.job-card-box'));
+            const start = (this.page - 1) * 15;
+            const end = boxes.length;
+            const jobs = boxes.slice(start, end)
+            .filter(dom => {
+                const name = dom.querySelector('.job-card-footer .boss-info .boss-name');
+                const place = dom.querySelector('.job-card-footer .boss-info .company-location');
+                const jobName = dom.querySelector('.job-info .job-title .job-name');
+                // 排除的公司
+                return !config.excludes.some(exclude => name.innerText.includes(exclude)) &&
+                    // 是否接受外地职位
+                    (config.otherPlace || !place) &&
+                    // 职位名称匹配
+                    jobName.innerText.toLowerCase().includes(config.keyword.toLowerCase()) &&
+                    // 职位名称排除关键词
+                    !config.excludeKeywords.find(keyword => jobName.innerText.includes(keyword))
+            });
+            const handlers = jobs.map((dom, index) => {
+                return () => new Promise(resolve => {
+                    this._countdown(Math.ceil(random(config.min, config.max) / 1000), async () => {
+                        dom.click();
+                        const isfriend = await monitorElementGeneration('.op-btn.op-btn-chat');
+                        const bossName = await monitorElementGeneration('.boss-info-attr');
+                        // boss名称排除关键字
+                        if (isfriend.innerText === '立即沟通' &&
+                            !config.excludeBossNames.some(excludeBossName => bossName.innerText.includes(excludeBossName))) {
+                            const moreBtn = await monitorElementGeneration('.more-job-btn');
+                            moreBtn.click();
+                        }
+                        resolve();
+                    }, index+1, jobs.length);
+                });
+            });
+            for (const handler of handlers) {
+                await handler();
+            }
+
+            const randomTime = random(config.min, config.max);
+            this._countdown(Math.ceil(randomTime / 1000), async () => {
+                await this._recommendLoadNextPage();
+                await this._traverseRecommend();
+            });
+        }
+
         /**
          * 遍历 jobs
          */
-        async _traverse() {
+        async _traverse(page = 0) {
             const { config } = this;
             const box = await monitorElementGeneration('.job-list-box');
             const jobs = Array.from(box.querySelectorAll('.job-card-wrapper'))
@@ -934,7 +988,8 @@ var AutoJob = (function () {
         /**
          * 检查 job 是否符合，符合则打招呼
          */
-        async _checkValidJob() {
+        async _checkValidJob(page = 0) {
+            this.page = page;
             const { config } = this;
             const info = await monitorElementGeneration('.job-boss-info>.name');
             const liveness = info.querySelector('span');
@@ -948,8 +1003,8 @@ var AutoJob = (function () {
                 return
             }
             commentBtn.click();
-            const totalBoss = Number(localStorage.getItem('totalBoss')) + 1;
-            localStorage.setItem('totalBoss', totalBoss);
+            const totalBoss = Number(localStorage.getItem('auto_job_total_boss')) + 1;
+            localStorage.setItem('auto_job_total_boss', totalBoss);
             // 统计日投递数
             this._setTotalCount();
             // 点击立即沟通后发出自动打招呼完成，10s后关闭页面
