@@ -145,13 +145,13 @@ var AutoJob = (function () {
         })
     }
 
-    async function delayQuerySelectorAll(selector) {
+    async function delayQuerySelectorAll(selector, time = 1000) {
         return new Promise(resolve => {
             let el;
             setTimeout(async () => {
                 el = await monitorElementsGeneration(selector);
                 resolve(el);
-            }, 1000);
+            }, time);
         })
     }
 
@@ -858,9 +858,12 @@ var AutoJob = (function () {
                 return
             }
 
-            const recommendBtns = Array.from(await delayQuerySelectorAll('.recommend-job-btn'));
+            const recommendBtns = Array.from(await delayQuerySelectorAll('.recommend-job-btn', 2000));
             if (!recommendBtns) return;
-            if (config.mode === 1 && recommendBtns.length < 2) return;
+            if (config.mode === 1 && recommendBtns.length < 2) {
+                alert('没有找到自己关注的职位');
+                return;
+            }
             const recommendBtn = recommendBtns[config.mode === 1 ? 1 : 0];
             recommendBtn.click();
 
@@ -898,7 +901,7 @@ var AutoJob = (function () {
                 return;
             }
 
-            const boxes = Array.from(await delayQuerySelectorAll('.job-card-box'));
+            const boxes = Array.from(await delayQuerySelectorAll('.job-card-box', 100));
             const start = (this.page - 1) * 15;
             const end = boxes.length;
             const jobs = boxes.slice(start, end)
